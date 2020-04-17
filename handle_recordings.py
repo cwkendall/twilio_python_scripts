@@ -18,7 +18,7 @@ from queue import Queue
 
 import requests
 from requests.auth import HTTPBasicAuth
-from twilio.rest import TwilioRestClient
+from twilio.rest import Client
 
 # Ensure your environmental variables have these configured
 acct = os.environ["TWILIO_ACCOUNT_SID"]
@@ -29,7 +29,7 @@ DELETE = True
 DOWNLOAD = True
 
 # Initialize Twilio Client
-client = TwilioRestClient(acct, auth)
+client = Client(acct, auth)
 
 # Create a lock to serialize console output
 lock = threading.Lock()
@@ -39,7 +39,7 @@ lock = threading.Lock()
 def do_work(recording):
     if DOWNLOAD == True:
         # Recordings might be big, so stream and write straight to file
-        data = requests.get(recording.uri, auth=HTTPBasicAuth(acct, auth),
+        data = requests.get("https://api.twilio.com" + recording.uri, auth=HTTPBasicAuth(acct, auth),
                             stream=True)
         with open(recording.sid + '.wav', 'wb') as fd:
             for chunk in data.iter_content(1):
@@ -47,7 +47,7 @@ def do_work(recording):
         with lock:
             print(threading.current_thread().name, recording.sid, "has downloaded")
     if DELETE == True:
-        result = client.recordings.delete(recording.sid)
+        result = client.recordings(recording.sid).delete()
         with lock:
             print(threading.current_thread().name, "has deleted", recording.sid)
 
@@ -75,7 +75,7 @@ with open('recordings.csv', 'w') as csvfile:
     record_writer.writerow(["Recording SID", "Duration", "Date", "Call SID"])
     # The iter() method below will churn out as many recordings as you have.
     # You can use a date filter to reduce this. e.g. before=date(2016, 4, 18)
-    for recording in client.recordings.iter(after=date(2015, 6, 1)):
+    for recording in client.recordings.list(date_created_after=date(2018, 3, 28)):
         record_writer.writerow([recording.sid, recording.duration,
                                 recording.date_updated, recording.call_sid])
         que.put(recording)
